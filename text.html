@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOUR NAME | Music Producer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Space Grotesk', 'sans-serif'],
+                        display: ['Syncopate', 'sans-serif'],
+                    },
+                    colors: {
+                        neon: '#ff006e',
+                        cyan: '#00f5ff',
+                        dark: '#0a0a0a',
+                        surface: '#141414',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-20px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: #0a0a0a;
+            color: white;
+            overflow-x: hidden;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ff006e;
+            border-radius: 4px;
+        }
+
+        /* Audio Visualizer Canvas */
+        #visualizer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Glitch Effect */
+        .glitch {
+            position: relative;
+        }
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .glitch::before {
+            left: 2px;
+            text-shadow: -2px 0 #ff006e;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim 5s infinite linear alternate-reverse;
+        }
+        .glitch::after {
+            left: -2px;
+            text-shadow: -2px 0 #00f5ff;
+            clip: rect(44px, 450px, 56px, 0);
+            animation: glitch-anim2 5s infinite linear alternate-reverse;
+        }
+        @keyframes glitch-anim {
+            0% { clip: rect(30px, 9999px, 15px, 0); }
+            20% { clip: rect(80px, 9999px, 70px, 0); }
+            40% { clip: rect(10px, 9999px, 55px, 0); }
+            60% { clip: rect(50px, 9999px, 18px, 0); }
+            80% { clip: rect(90px, 9999px, 85px, 0); }
+            100% { clip: rect(35px, 9999px, 15px, 0); }
+        }
+        @keyframes glitch-anim2 {
+            0% { clip: rect(65px, 9999px, 99px, 0); }
+            20% { clip: rect(20px, 9999px, 30px, 0); }
+            40% { clip: rect(80px, 9999px, 75px, 0); }
+            60% { clip: rect(10px, 9999px, 50px, 0); }
+            80% { clip: rect(40px, 9999px, 20px, 0); }
+            100% { clip: rect(60px, 9999px, 90px, 0); }
+        }
+
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #ff006e;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px rgba(255, 0, 110, 0.5);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #333;
+            border-radius: 2px;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        /* Track Card Hover */
+        .track-card {
+            transition: all 0.3s ease;
+        }
+        .track-card:hover {
+            transform: translateX(10px);
+            border-left: 4px solid #ff006e;
+        }
+        .track-card.playing {
+            background: linear-gradient(90deg, rgba(255,0,110,0.1) 0%, transparent 100%);
+            border-left: 4px solid #ff006e;
+        }
+
+        /* Play Button Animation */
+        .play-btn {
+            transition: all 0.2s;
+        }
+        .play-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 0, 110, 0.6);
+        }
+        .play-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- Background Visualizer -->
+    <canvas id="visualizer"></canvas>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 px-6 py-6 flex justify-between items-center backdrop-blur-sm bg-black/30 border-b border-white/10">
+        <div class="text-2xl font-display font-bold tracking-widest text-white">
+            YOUR<span class="text-neon">NAME</span>
+        </div>
+        <div class="hidden md:flex gap-8 text-sm tracking-wider">
+            <a href="#music" class="hover:text-neon transition-colors">MUSIC</a>
+            <a href="#about" class="hover:text-neon transition-colors">ABOUT</a>
+            <a href="#contact" class="hover:text-neon transition-colors">CONTACT</a>
+        </div>
+        <button class="md:hidden text-white" onclick="toggleMenu()">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="fixed inset-0 bg-black z-40 transform translate-x-full transition-transform duration-300 md:hidden flex flex-col items-center justify-center gap-8 text-2xl font-display">
+        <a href="#music" onclick="toggleMenu()" class="hover:text-neon">MUSIC</a>
+        <a href="#about" onclick="toggleMenu()" class="hover:text-neon">ABOUT</a>
+        <a href="#contact" onclick="toggleMenu()" class="hover:text-neon">CONTACT</a>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen flex items-center justify-center px-6 pt-20">
+        <div class="max-w-6xl w-full grid md:grid-cols-2 gap-12 items-center">
+            <div class="space-y-6 z-10">
+                <div class="inline-block px-4 py-1 border border-neon/50 rounded-full text-xs tracking-widest text-neon animate-pulse-slow">
+                    NEW SINGLE OUT NOW
+                </div>
+                <h1 class="text-6xl md:text-8xl font-display font-bold leading-none glitch" data-text="SOUND">
+                    SOUND<br>
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-neon to-cyan">WAVES</span>
+                </h1>
+                <p class="text-gray-400 text-lg max-w-md leading-relaxed">
+                    Producer & Sound Designer crafting sonic landscapes that blur the lines between analog warmth and digital precision.
+                </p>
+                <div class="flex gap-4 pt-4">
+                    <button onclick="scrollToMusic()" class="px-8 py-4 bg-neon text-white font-bold rounded-full hover:bg-neon/80 transition-all transform hover:scale-105 shadow-[0_0_30px_rgba(255,0,110,0.5)]">
+                        LISTEN NOW
+                    </button>
+                    <button class="px-8 py-4 border border-white/30 rounded-full hover:border-neon hover:text-neon transition-all">
+                        FOLLOW
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Floating Visual Element -->
+            <div class="relative h-[500px] hidden md:block animate-float">
+                <div class="absolute inset-0 bg-gradient-to-br from-neon/20 to-cyan/20 rounded-full blur-3xl"></div>
+                <div class="absolute inset-10 border border-white/10 rounded-full flex items-center justify-center backdrop-blur-sm bg-white/5">
+                    <div class="w-32 h-32 border-4 border-neon rounded-full flex items-center justify-center animate-pulse-slow">
+                        <div class="w-24 h-24 bg-neon/20 rounded-full backdrop-blur-md"></div>
+                    </div>
+                </div>
+                <!-- Orbiting Elements -->
+                <div class="absolute inset-0 animate-[spin_10s_linear_infinite]">
+                    <div class="absolute top-0 left-1/2 w-4 h-4 bg-cyan rounded-full shadow-[0_0_20px_rgba(0,245,255,0.8)]"></div>
+                </div>
+                <div class="absolute inset-0 animate-[spin_15s_linear_infinite_reverse]">
+                    <div class="absolute bottom-10 right-10 w-6 h-6 bg-neon rounded-full shadow-[0_0_20px_rgba(255,0,110,0.8)]"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scroll Indicator -->
+        <div class="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce">
+            <svg class="w-6 h-6 text-white/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+        </div>
+    </section>
+
+    <!-- Latest Tracks Section -->
+    <section id="music" class="relative py-20 px-6 bg-surface/50">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex justify-between items-end mb-12">
+                <div>
+                    <h2 class="text-4xl md:text-5xl font-display font-bold mb-2">LATEST <span class="text-neon">TRACKS</span></h2>
+                    <p class="text-gray-400">Fresh releases and featured productions</p>
+                </div>
+                <div class="hidden md:flex gap-2">
+                    <button class="p-2 rounded-full border border-white/20 hover:border-neon hover:text-neon transition-all" onclick="previousTrack()">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                    </button>
+                    <button class="p-2 rounded-full border border-white/20 hover:border-neon hover:text-neon transition-all" onclick="nextTrack()">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tracks List -->
+            <div class="space-y-4" id="tracks-container">
+                <!-- Track 1 -->
+                <div class="track-card bg-black/40 p-6 rounded-2xl flex items-center gap-6 cursor-pointer group" onclick="playTrack(0)">
+                    <div class="relative w-20 h-20 flex-shrink-0">
+                        <img src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&h=200&fit=crop" alt="Cover" class="w-full h-full object-cover rounded-lg">
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                            <svg class="w-8 h-8 text-white play-icon-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold group-hover:text-neon transition-colors">Midnight Synthesis</h3>
+                        <p class="text-gray-400 text-sm">Electronic • 2024</p>
+                    </div>
+                    <div class="hidden md:block text-gray-500 text-sm">3:42</div>
+                    <button class="p-3 rounded-full border border-white/20 hover:border-neon hover:bg-neon/10 transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    </button>
+                </div>
+
+                <!-- Track 2 -->
+                <div class="track-card bg-black/40 p-6 rounded-2xl flex items-center gap-6 cursor-pointer group" onclick="playTrack(1)">
+                    <div class="relative w-20 h-20 flex-shrink-0">
+                        <img src="https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=200&h=200&fit=crop" alt="Cover" class="w-full h-full object-cover rounded-lg">
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                            <svg class="w-8 h-8 text-white play-icon-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold group-hover:text-neon transition-colors">Neon Horizons</h3>
+                        <p class="text-gray-400 text-sm">Synthwave • 2024</p>
+                    </div>
+                    <div class="hidden md:block text-gray-500 text-sm">4:15</div>
+                    <button class="p-3 rounded-full border border-white/20 hover:border-neon hover:bg-neon/10 transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    </button>
+                </div>
+
+                <!-- Track 3 -->
+                <div class="track-card bg-black/40 p-6 rounded-2xl flex items-center gap-6 cursor-pointer group" onclick="playTrack(2)">
+                    <div class="relative w-20 h-20 flex-shrink-0">
+                        <img src="https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=200&h=200&fit=crop" alt="Cover" class="w-full h-full object-cover rounded-lg">
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                            <svg class="w-8 h-8 text-white play-icon-2" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold group-hover:text-neon transition-colors">Analog Dreams</h3>
+                        <p class="text-gray-400 text-sm">Lo-Fi • 2023</p>
+                    </div>
+                    <div class="hidden md:block text-gray-500 text-sm">2:58</div>
+                    <button class="p-3 rounded-full border border-white/20 hover:border-neon hover:bg-neon/10 transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    </button>
+                </div>
+
+                <!-- Track 4 -->
+                <div class="track-card bg-black/40 p-6 rounded-2xl flex items-center gap-6 cursor-pointer group" onclick="playTrack(3)">
+                    <div class="relative w-20 h-20 flex-shrink-0">
+                        <img src="https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=200&h=200&fit=crop" alt="Cover" class="w-full h-full object-cover rounded-lg">
+                        <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                            <svg class="w-8 h-8 text-white play-icon-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-xl font-bold group-hover:text-neon transition-colors">Bass Theory</h3>
+                        <p class="text-gray-400 text-sm">Techno • 2023</p>
+                    </div>
+                    <div class="hidden md:block text-gray-500 text-sm">5:22</div>
+                    <button class="p-3 rounded-full border border-white/20 hover:border-neon hover:bg-neon/10 transition-all">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="mt-16 p-8 border-2 border-dashed border-white/20 rounded-3xl text-center hover:border-neon/50 transition-all group cursor-pointer bg-black/20">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-neon/20 transition-all">
+                    <svg class="w-8 h-8 text-gray-400 group-hover:text-neon transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                </div>
+                <h3 class="text-xl font-bold mb-2">Upload New Track</h3>
+                <p class="text-gray-400 text-sm">Drag and drop your audio files here, or click to browse</p>
+                <input type="file" accept="audio/*" class="hidden" id="audio-upload" onchange="handleUpload(event)">
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="py-20 px-6">
+        <div class="max-w-6xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+            <div class="relative">
+                <div class="absolute inset-0 bg-gradient-to-tr from-neon to-cyan rounded-3xl blur-2xl opacity-30"></div>
+                <img src="https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=600&h=700&fit=crop" alt="Studio" class="relative rounded-3xl shadow-2xl grayscale hover:grayscale-0 transition-all duration-500">
+            </div>
+            <div class="space-y-6">
+                <h2 class="text-4xl md:text-5xl font-display font-bold">THE <span class="text-cyan">PRODUCER</span></h2>
+                <p class="text-gray-300 text-lg leading-relaxed">
+                    Creating music from the depths of a home studio transformed into a sonic laboratory. Blending analog synthesizers with digital precision to craft unique soundscapes.
+                </p>
+                <p class="text-gray-400 leading-relaxed">
+                    Inspired by the intersection of technology and emotion, every track is a journey through synthesized dreams and rhythmic realities.
+                </p>
+                <div class="grid grid-cols-3 gap-6 pt-6">
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-neon">50+</div>
+                        <div class="text-sm text-gray-400 mt-1">Tracks</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-cyan">10M+</div>
+                        <div class="text-sm text-gray-400 mt-1">Streams</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-3xl font-bold text-white">5</div>
+                        <div class="text-sm text-gray-400 mt-1">Years</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="py-20 px-6 bg-surface/30">
+        <div class="max-w-4xl mx-auto text-center">
+            <h2 class="text-4xl md:text-5xl font-display font-bold mb-8">LET'S <span class="text-neon">COLLABORATE</span></h2>
+            <p class="text-gray-400 mb-12 max-w-2xl mx-auto">Open for bookings, remix requests, and creative partnerships. Drop a message and let's create something extraordinary.</p>
+            
+            <form class="space-y-6 text-left" onsubmit="handleSubmit(event)">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <input type="text" placeholder="Your Name" required class="w-full px-6 py-4 bg-black/50 border border-white/10 rounded-xl focus:border-neon focus:outline-none focus:ring-2 focus:ring-neon/20 transition-all">
+                    <input type="email" placeholder="Your Email" required class="w-full px-6 py-4 bg-black/50 border border-white/10 rounded-xl focus:border-neon focus:outline-none focus:ring-2 focus:ring-neon/20 transition-all">
+                </div>
+                <textarea rows="4" placeholder="Tell me about your project..." required class="w-full px-6 py-4 bg-black/50 border border-white/10 rounded-xl focus:border-neon focus:outline-none focus:ring-2 focus:ring-neon/20 transition-all"></textarea>
+                <button type="submit" class="w-full py-4 bg-gradient-to-r from-neon to-purple-600 text-white font-bold rounded-xl hover:opacity-90 transition-all transform hover:scale-[1.02] shadow-[0_0_30px_rgba(255,0,110,0.3)]">
+                    SEND MESSAGE
+                </button>
+            </form>
+
+            <div class="flex justify-center gap-6 mt-12">
+                <a href="#" class="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center hover:border-neon hover:text-neon hover:bg-neon/10 transition-all">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                </a>
+                <a href="#" class="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center hover:border-neon hover:text-neon hover:bg-neon/10 transition-all">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-2 16h-2v-6h2v6zm-1-6.891c-.607 0-1.1-.496-1.1-1.109 0-.612.492-1.109 1.1-1.109s1.1.497 1.1 1.109c0 .613-.493 1.109-1.1 1.109zm8 6.891h-1.998v-2.861c0-1.881-2.002-1.722-2.002 0v2.861h-2v-6h2v1.093c.872-1.616 4-1.736 4 1.548v3.359z"/></svg>
+                </a>
+                <a href="#" class="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center hover:border-neon hover:text-neon hover:bg-neon/10 transition-all">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2c-5.522 0-10 4.477-10 10 0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026a9.564 9.564 0 012.5-.336 9.554 9.554 0 012.5.336c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.942.359.308.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482a10.001 10.001 0 006.834-9.49c0-5.523-4.477-10-10-10z"/></svg>
+                </a>
+                <a href="#" class="w-12 h-12 rounded-full border border-white/20 flex items-center justify-center hover:border-neon hover:text-neon hover:bg-neon/10 transition-all">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-8 px-6 border-t border-white/10 text-center text-gray-500 text-sm">
+        <p>&copy; 2024 YOUR NAME. All rights reserved. Designed for sonic exploration.</p>
+    </footer>
+
+    <!-- Persistent Music Player -->
+    <div id="persistent-player" class="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t border-white/10 transform translate-y-full transition-transform duration-500 z-50 px-6 py-4">
+        <div class="max-w-6xl mx-auto flex items-center gap-4">
+            <div class="flex-shrink-0">
+                <img id="player-cover" src="" alt="Cover" class="w-14 h-14 rounded-lg object-cover">
+            </div>
+            <div class="flex-1 min-w-0">
+                <h4 id="player-title" class="font-bold truncate">Select a track</h4>
+                <p id="player-artist" class="text-sm text-gray-400 truncate">Your Name</p>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <button onclick="previousTrack()" class="text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                </button>
+                <button onclick="togglePlay()" id="main-play-btn" class="play-btn w-12 h-12 rounded-full bg-neon flex items-center justify-center text-white">
+                    <svg class="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button onclick="nextTrack()" class="text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                </button>
+            </div>
+
+            <div class="hidden md:flex items-center gap-3 flex-1 max-w-xs">
+                <span id="current-time" class="text-xs text-gray-400 w-10 text-right">0:00</span>
+                <input type="range" id="progress-bar" class="flex-1" value="0" min="0" max="100" oninput="seekAudio(this.value)">
+                <span id="duration" class="text-xs text-gray-400 w-10">0:00</span>
+            </div>
+
+            <div class="hidden md:flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+                <input type="range" id="volume-slider" class="w-24" value="80" min="0" max="100" oninput="setVolume(this.value)">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Audio Context and Visualizer Setup
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let animationId;
+        let currentTrack = null;
+        let isPlaying = false;
+        let audioElement = new Audio();
+        
+        // Track data
+        const tracks = [
+            { title: "Midnight Synthesis", artist: "Your Name", cover: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&h=200&fit=crop", src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" },
+            { title: "Neon Horizons", artist: "Your Name", cover: "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=200&h=200&fit=crop", src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" },
+            { title: "Analog Dreams", artist: "Your Name", cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=200&h=200&fit=crop", src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" },
+            { title: "Bass Theory", artist: "Your Name", cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=200&h=200&fit=crop", src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" }
+        ];
+
+        // Initialize Audio Context
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                const source = audioContext.createMediaElementSource(audioElement);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+            }
+        }
+
+        // Visualizer Animation
+        function drawVisualizer() {
+            const canvas = document.getElementById('visualizer');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            function animate() {
+                animationId = requestAnimationFrame(animate);
+                
+                analyser.getByteFrequencyData(dataArray);
+                
+                ctx.fillStyle = 'rgba(10, 10, 10, 0.2)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                const barWidth = (canvas.width / dataArray.length) * 2.5;
+                let barHeight;
+                let x = 0;
+                
+                for (let i = 0; i < dataArray.length; i++) {
+                    barHeight = dataArray[i] * 1.5;
+                    
+                    const gradient = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
+                    gradient.addColorStop(0, '#ff006e');
+                    gradient.addColorStop(1, '#00f5ff');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                    
+                    x += barWidth + 1;
+                }
+            }
+            
+            animate();
+        }
+
+        // Play Track
+        function playTrack(index) {
+            initAudioContext();
+            
+            if (currentTrack === index && isPlaying) {
+                togglePlay();
+                return;
+            }
+            
+            currentTrack = index;
+            const track = tracks[index];
+            
+            audioElement.src = track.src;
+            audioElement.load();
+            
+            // Update UI
+            document.getElementById('player-title').textContent = track.title;
+            document.getElementById('player-cover').src = track.cover;
+            document.getElementById('persistent-player').classList.remove('translate-y-full');
+            
+            // Highlight current track
+            document.querySelectorAll('.track-card').forEach((card, i) => {
+                if (i === index) card.classList.add('playing');
+                else card.classList.remove('playing');
+            });
+            
+            // Update play buttons
+            updatePlayButtons(true);
+            
+            audioElement.play();
+            isPlaying = true;
+            
+            audioElement.onended = () => {
+                nextTrack();
+            };
+            
+            audioElement.ontimeupdate = updateProgress;
+            audioElement.onloadedmetadata = () => {
+                document.getElementById('duration').textContent = formatTime(audioElement.duration);
+            };
+            
+            if (!animationId) drawVisualizer();
+        }
+
+        function togglePlay() {
+            if (audioElement.paused) {
+                audioElement.play();
+                isPlaying = true;
+                updatePlayButtons(true);
+            } else {
+                audioElement.pause();
+                isPlaying = false;
+                updatePlayButtons(false);
+            }
+        }
+
+        function updatePlayButtons(playing) {
+            const btn = document.getElementById('main-play-btn');
+            const icon = playing ? 
+                '<svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>' :
+                '<svg class="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+            btn.innerHTML = icon;
+            
+            // Update track list icons
+            tracks.forEach((_, i) => {
+                const iconEl = document.querySelector(`.play-icon-${i}`);
+                if (iconEl) {
+                    iconEl.innerHTML = (playing && currentTrack === i) ?
+                        '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>' :
+                        '<path d="M8 5v14l11-7z"/>';
+                }
+            });
+        }
+
+        function nextTrack() {
+            const next = currentTrack === null ? 0 : (currentTrack + 1) % tracks.length;
+            playTrack(next);
+        }
+
+        function previousTrack() {
+            const prev = currentTrack === null ? tracks.length - 1 : (currentTrack - 1 + tracks.length) % tracks.length;
+            playTrack(prev);
+        }
+
+        function updateProgress() {
+            const progress = (audioElement.currentTime / audioElement.duration) * 100;
+            document.getElementById('progress-bar').value = progress;
+            document.getElementById('current-time').textContent = formatTime(audioElement.currentTime);
+        }
+
+        function seekAudio(value) {
+            const time = (value / 100) * audioElement.duration;
+            audioElement.currentTime = time;
+        }
+
+        function setVolume(value) {
+            audioElement.volume = value / 100;
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Upload Handler
+        function handleUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                const newTrack = {
+                    title: file.name.replace(/\.[^/.]+$/, ""),
+                    artist: "Your Name",
+                    cover: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=200&h=200&fit=crop",
+                    src: url
+                };
+                tracks.push(newTrack);
+                
+                // Add to UI
+                const container = document.getElementById('tracks-container');
+                const index = tracks.length - 1;
+                const trackHTML = `
+                    <div class="track-card bg-black/40 p-6 rounded-2xl flex items-center gap-6 cursor-pointer group" onclick="playTrack(${index})">
+                        <div class="relative w-20 h-20 flex-shrink-0">
+                            <img src="${newTrack.cover}" alt="Cover" class="w-full h-full object-cover rounded-lg">
+                            <div class="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                                <svg class="w-8 h-8 text-white play-icon-${index}" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-xl font-bold group-hover:text-neon transition-colors">${newTrack.title}</h3>
+                            <p class="text-gray-400 text-sm">Upload • Just now</p>
+                        </div>
+                        <div class="hidden md:block text-gray-500 text-sm">--:--</div>
+                        <button class="p-3 rounded-full border border-white/20 hover:border-neon hover:bg-neon/10 transition-all">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                        </button>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', trackHTML);
+                
+                alert('Track uploaded successfully! Click to play.');
+            }
+        }
+
+        // UI Helpers
+        function toggleMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('translate-x-full');
+        }
+
+        function scrollToMusic() {
+            document.getElementById('music').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function handleSubmit(e) {
+            e.preventDefault();
+            alert('Message sent! I\'ll get back to you soon.');
+            e.target.reset();
+        }
+
+        // Handle window resize for canvas
+        window.addEventListener('resize', () => {
+            const canvas = document.getElementById('visualizer');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // Initialize
+        audioElement.volume = 0.8;
+    </script>
+</body>
+</html>
